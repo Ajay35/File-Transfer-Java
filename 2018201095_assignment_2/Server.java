@@ -1,13 +1,13 @@
 import java.io.*; 
-import java.util.*; 
+import java.util.*;
+
+
 import java.net.*; 
-  
 // Server class 
 public class Server  
 { 
 	public static List<User> users=new ArrayList<User>();
 	public static List<Group> groups=new ArrayList<Group>();
-	
     public static void main(String[] args) throws IOException  
     { 
         // server is listening on port 5056 
@@ -21,7 +21,7 @@ public class Server
               
             try 
             { 
-                // socket object to receive incoming client requests 
+                 
                 s = ss.accept(); 
                   
                 System.out.println("A new client is connected : " + s); 
@@ -29,8 +29,7 @@ public class Server
                 // obtaining input and out streams 
                 DataInputStream dis = new DataInputStream(s.getInputStream()); 
                 DataOutputStream dos = new DataOutputStream(s.getOutputStream()); 
-                  
-                System.out.println("Assigning new thread for this client"); 
+                 
   
                 // create a new thread object 
                 Thread t = new ClientHandler(s, dis, dos); 
@@ -46,7 +45,8 @@ public class Server
         } 
     } 
 } 
-  
+
+
 class ClientHandler extends Thread
 { 
     final DataInputStream dis; 
@@ -60,7 +60,6 @@ class ClientHandler extends Thread
         this.dis = dis; 
         this.dos = dos; 
     } 
-    
     @Override
     public void run()  
     { 
@@ -92,7 +91,7 @@ class ClientHandler extends Thread
                 { 
                 
                     case "create_user": 
-                        String resp=addUser();
+                        String resp=addUser(this.s);
                         dos.writeUTF(resp);
                         dos.flush();
                         break;
@@ -175,11 +174,24 @@ class ClientHandler extends Thread
                     
                     	
                     case "join_group":
-                    	
+                    	String userid=dis.readUTF();
+                    	String groupname=dis.readUTF();
+                    	boolean status=joinGroup(Integer.parseInt(userid),groupname);
+                    	if(status)
+                    		dos.writeUTF("Group joined successfully");
+                    	else
+                    		dos.writeUTF("No such group exists");
                     	break;
                     
                     
                     case "leave_group":
+                    	String useri=dis.readUTF();
+                    	String group_name=dis.readUTF();
+                    	boolean stat=leaveGroup(Integer.parseInt(useri),group_name);
+                    	if(stat)
+                    		dos.writeUTF("Group left successfully");
+                    	else
+                    		dos.writeUTF("Operation failed");
                     	break;
                     
                     	
@@ -191,6 +203,26 @@ class ClientHandler extends Thread
                     	
                     	
                     case "share_msg":
+                    	String mes="";
+                    	for(String s:req) {
+                    		System.out.println(s);
+                    	}
+                    	for(int i=2;i<req.length;i++) {
+                    		mes+=req[i];
+                    	}
+                    	mes+='\n';
+                    	for(User u:Server.users){
+                    		if(u.getGroup_name().equals(req[1])) {
+                    			String chatFilePath=u.getFilePath();
+                    			System.out.println("chat file path:"+chatFilePath);
+                    			File f=new File(chatFilePath);
+                    			FileOutputStream fos=new FileOutputStream(f);
+                    			byte[] b= mes.getBytes();
+                    			fos.write(b);
+                    			fos.close();
+                    		}
+                    	}
+                    	dos.writeUTF("Message successfully posted in group..");
                     	break;
                     
                     	
@@ -227,7 +259,38 @@ class ClientHandler extends Thread
         }
     }
    
-    private void sendFile(String path,String group_name,int user_id) {
+    private boolean joinGroup(int i, String groupname) {
+		// TODO Auto-generated method stub
+    	boolean avail=false;
+    	for(Group g:Server.groups) {
+    		if(g.getGroup_name().equals(groupname)) {
+    			avail=true;
+    			break;
+    		}
+    	}
+    	if(!avail)
+    		return false;
+    	for(User u:Server.users) {
+    		if(u.getUser_id()==i) {
+    			u.setGroup_name(groupname);
+    			break;
+    		}
+    	}
+		return true;
+	}
+    private boolean leaveGroup(int i, String groupname) {
+		// TODO Auto-generated method stub
+    	
+    	for(User u:Server.users) {
+    		if(u.getUser_id()==i) {
+    			u.setGroup_name("temp");
+    			break;
+    		}
+    	}
+		return false;
+	}
+
+	private void sendFile(String path,String group_name,int user_id) {
 		// TODO Auto-generated method stub
 		
     	System.out.println("Downloading start.....");
@@ -450,7 +513,7 @@ class ClientHandler extends Thread
          return saltStr;
     }
     
-	private String addUser() {
+	private String addUser(Socket s) throws IOException {
 		// TODO Auto-generated method stub
 		
 		User u=new User();
@@ -460,10 +523,20 @@ class ClientHandler extends Thread
 		String uname=randomString();
 		u.setUser_name(uname);
 		u.setGroup_name(gname);
+		
+		u.setSocket(s);
 		Group g=new Group();
 		g.setGroup_name(gname);
+		
+		String path="ServerRoot/"+gname+"/"+"group_msgs.txt";
+		g.setFilePath(path);
+		u.setFilePath(path);
+		File f=new File(path);
+		f.getParentFile().mkdirs();
+		f.createNewFile();
 		Server.users.add(u);
 		Server.groups.add(g);
-		return id+" "+uname+" "+gname;
+		
+		return id+" "+uname+" "+gname+" "+path;
 	}
 } 

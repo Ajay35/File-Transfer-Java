@@ -1,8 +1,54 @@
 import java.io.*; 
-import java.net.*; 
-import java.util.Scanner; 
+import java.net.*;
+import java.util.Scanner;
   
 // Client class 
+
+
+class chatHandler extends Thread
+{
+	public String chatFilePath;
+	public chatHandler(String path) {
+		this.chatFilePath=path;
+	}
+	@Override
+	public void run() {
+		
+		  File file=new File(chatFilePath);
+		  long pointer = 0;
+		  for (;;) {
+		  
+		 try {
+		    long len = file.length();
+		    if (len < pointer) {
+		      // file was reset
+		      pointer = len;
+		    } else if (len > pointer) {
+		      // Content was added
+		      RandomAccessFile raf = new RandomAccessFile(file, "r");
+		      raf.seek(pointer);
+		      String line;
+		      while ((line = raf.readLine()) != null) {
+		    	  System.out.println("New message:"+line);
+		      }
+		      pointer = raf.getFilePointer();
+		      raf.close();
+		    }
+		 }
+		 catch(Exception e) {
+			 e.printStackTrace();
+		 }
+		    try {
+		      Thread.sleep(1000);
+		    } catch (InterruptedException e) {
+		      Thread.interrupted();
+		      break;
+		    }
+		  }
+		
+		
+	}
+}
 public class Client  
 { 
     public static void main(String[] args) throws IOException  
@@ -10,7 +56,7 @@ public class Client
     	
     	boolean loggedIn=false;
     	String group_name="temp";
-    	String user_id="none";
+    	int user_id=0;
         try
         { 
             Scanner scn = new Scanner(System.in); 
@@ -41,8 +87,13 @@ public class Client
             		String[] info=received.split(" ");
             		group_name=info[2];
             		loggedIn=true;
-            		user_id=info[0];
-            		System.out.println(received);
+            		user_id=Integer.parseInt(info[0]);
+            		
+	        		 Thread ch=new chatHandler(info[3]);
+	                 ch.setDaemon(true);
+	                 ch.start();
+	                 System.out.println("New chat started");
+	                 System.out.println(received);
                 }
                 else
                 {
@@ -223,11 +274,16 @@ public class Client
 	                            fos.close();
 	                            ds.close();
 	                        }
-	                    } 
+	                    }
 	                    catch (Exception e) {}
-	                	
-	                	
-	                	
+	                }
+	                else if(tosend.contains("join_group")) {
+	                	dos.writeUTF(Integer.toString(user_id));
+	                	dos.writeUTF(group_name);
+	                }
+	                else if(tosend.contains("leaveGroup")) {
+	                	dos.writeUTF(Integer.toString(user_id));
+	                	dos.writeUTF(group_name);
 	                }
                 	String received = dis.readUTF(); 
                 	System.out.println(received); 
